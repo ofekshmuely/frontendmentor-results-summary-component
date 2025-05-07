@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/images/favicon-32x32.png">
+  
+  <title>Frontend Mentor | Results summary component</title>
+
+  <!-- Feel free to remove these styles or customise in your own stylesheet 👍 -->
+  <link rel="stylesheet" href="style.css">
+
+
+
+
+
+</head>
+<body>
+  <div id="summary-container">
+  </div>
+
+
+  <script>
+    // יצירת אלמנט שמציג את הקטגוריה והאייקון
+    // פונקציה לשמירת תמונה ב-localStorage
+    async function saveImageToLocalStorage(src, key) {
+      try {
+        const response = await fetch(src);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        
+        reader.onloadend = () => {
+          localStorage.setItem(key, reader.result);
+        };
+        
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error saving image:', error);
+      }
+    }
+
+    // פונקציה לקבלת תמונה מ-localStorage או מהשרת
+    function getImageSource(src, storageKey) {
+      const storedImage = localStorage.getItem(storageKey);
+      return storedImage || src;
+    }
+
+    function createCategoryElement(category, iconSrc, titleColor) {
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'category';
+      categoryDiv.style.color = titleColor;
+      
+      const icon = document.createElement('img');
+      const storageKey = `icon_${category.toLowerCase()}`;
+      icon.src = getImageSource(iconSrc, storageKey);
+      icon.alt = category;
+      
+      // שמור את התמונה ב-localStorage אם היא לא קיימת
+      if (!localStorage.getItem(storageKey)) {
+        saveImageToLocalStorage(iconSrc, storageKey);
+      }
+      
+      categoryDiv.appendChild(icon);
+      categoryDiv.appendChild(document.createTextNode(category));
+      
+      return categoryDiv;
+    }
+
+    // יצירת אלמנט שמציג את הציון
+    function createScoreElement(score) {
+      const scoreDiv = document.createElement('div');
+      scoreDiv.className = 'score';
+      scoreDiv.innerHTML = `
+        <span class="actual-score">${score}</span>
+        <span class="score-separator"> / </span>
+        <span class="max-score">100</span>
+      `;
+      return scoreDiv;
+    }
+
+    // יצירת שורה שלמה של תוצאה
+    function createResultItem(item) {
+      const div = document.createElement('div');
+      div.className = `summary-item ${item.category.toLowerCase()}`;
+      
+      div.appendChild(createCategoryElement(item.category, item.icon, item.title));
+      div.appendChild(createScoreElement(item.score));
+      
+      return div;
+    }
+
+    // הצגת הודעת שגיאה
+    function showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.color = 'red';
+      errorDiv.style.padding = '20px';
+      errorDiv.textContent = `שגיאה: ${message}`;
+      document.body.appendChild(errorDiv);
+    }
+
+    // חישוב הציון הממוצע
+    function calculateAverageScore(data) {
+      const totalScore = data.reduce((sum, item) => sum + item.score, 0);
+      const averageScore = (totalScore / (data.length * 100)) * 100;
+      return Math.round(averageScore);
+    }
+
+    // פונקציית easing
+    function easeOutQuart(x) {
+      return 1 - Math.pow(1 - x, 4);
+    }
+
+    // פונקציה להנפשת המספר
+    function animateNumber(element, start, end, duration) {
+      const startTime = performance.now();
+      const range = end - start;
+
+      function update() {
+        const currentTime = performance.now();
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // חישוב הערך הנוכחי עם easing
+        const easedProgress = easeOutQuart(progress);
+        const current = start + (range * easedProgress);
+        
+        element.textContent = Math.round(current);
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    // פונקציה להחזרת תיאור הציון
+    function getScoreDescription(score) {
+      if (score >= 90) return 'Perfect';
+      if (score >= 85) return 'Wonderful';
+      if (score >= 75) return 'Great';
+      if (score >= 65) return 'Good';
+      if (score >= 55) return 'Fair';
+      return 'Poor';
+    }
+
+    // פונקציה להחזרת אחוז המשתמשים שהצליחו פחות
+    function getPercentageComparison(score) {
+      // הציון הוא אחוז האנשים שהצליחו פחות
+      return {
+        isHigher: score >= 50,
+        percentage: score
+      };
+    }
+
+    // יצירת אלמנט שמציג את הציון הממוצע
+    function createAverageScoreElement(score) {
+      const averageDiv = document.createElement('div');
+      averageDiv.className = 'average-score';
+      const comparison = getPercentageComparison(score);
+      averageDiv.innerHTML = `
+        <h3>Your Result</h3>
+        <div class="score-circle">
+          <span class="big-score">1</span>
+          <span class="of-100">of 100</span>
+        </div>
+        <div class="score-description">${getScoreDescription(score)}</div>
+        <p class="score-comparison">${comparison.isHigher ? 
+          `You scored higher than ${100 - comparison.percentage}% of the people who have taken these tests` :
+          `You scored lower than ${comparison.percentage}% of the people who have taken these tests`
+        }</p>
+      `;
+
+      // הפעל את האנימציה אחרי שהאלמנט נוסף ל-DOM
+      setTimeout(() => {
+        const scoreElement = averageDiv.querySelector('.big-score');
+        animateNumber(scoreElement, 1, score, 2500); // אנימציה של 2.5 שניות
+      }, 100);
+
+      return averageDiv;
+    }
+
+    // הפונקציה הראשית שמריצה הכל
+    async function loadAndDisplayResults() {
+      try {
+        console.log('התחלת טעינת הנתונים...');
+        
+        // טעינת הנתונים מהקובץ JSON
+        const response = await fetch('data.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log('הנתונים נטענו:', data);
+
+        // חישוב הציון הממוצע
+        const averageScore = calculateAverageScore(data);
+        console.log('הציון הממוצע:', averageScore);
+
+        // מצא את המיכל שיכיל את התוצאות
+        const container = document.getElementById('summary-container');
+        if (!container) {
+          throw new Error('לא נמצא אלמנט summary-container');
+        }
+
+        // נקה את המיכל לפני הוספת תוכן חדש
+        container.innerHTML = '';
+
+        // הוסף את הציון הממוצע
+        container.appendChild(createAverageScoreElement(averageScore));
+
+        // יצירת המיכל לפריטים
+        const summaryItemsContainer = document.createElement('div');
+        summaryItemsContainer.className = 'summary-items-container';
+
+        // הוספת כותרת Summary
+        const summaryTitle = document.createElement('h2');
+        summaryTitle.className = 'summary-title';
+        summaryTitle.textContent = 'Summary';
+        summaryItemsContainer.appendChild(summaryTitle);
+
+        // הוסף את כל הפריטים
+        data.forEach((item, index) => {
+          console.log(`מעבד פריט ${index}:`, item);
+          const resultItem = createResultItem(item);
+          summaryItemsContainer.appendChild(resultItem);
+        });
+
+        // הוסף כפתור Continue
+        const continueButton = document.createElement('button');
+        continueButton.className = 'continue-button';
+        continueButton.textContent = 'Continue';
+        summaryItemsContainer.appendChild(continueButton);
+
+        // הוסף את המיכל לתוך המיכל הראשי
+        container.appendChild(summaryItemsContainer);
+
+        console.log('כל הפריטים נוספו בהצלחה!');
+
+      } catch (error) {
+        console.error('נתפסה שגיאה:', error);
+        showError(error.message);
+      }
+    }
+
+    // הפעל את הקוד כשהדף נטען
+    document.addEventListener('DOMContentLoaded', loadAndDisplayResults);
+  </script>
+</body>
+</html>
